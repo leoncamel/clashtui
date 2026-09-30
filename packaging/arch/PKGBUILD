@@ -1,0 +1,50 @@
+# Maintainer: JohanChane <johanchane@users.noreply.github.com>
+# Local test build: makepkg -sf
+pkgname=clashtui
+pkgver=0.3.2
+pkgrel=1
+pkgdesc="Mihomo (Clash.Meta) TUI Client"
+arch=('x86_64' 'aarch64')
+url="https://github.com/JohanChane/clashtui"
+license=('MIT')
+makedepends=('cargo')
+optdepends=('mihomo: default proxy core'
+            'sing-box: alternative proxy core')
+source=("$pkgname-$pkgver.tar.gz")
+options=(!lto)
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  cargo fetch --locked
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CLASHTUI_VERSION="$pkgver"
+  cargo build --release --locked --all-features
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  cargo test --release --locked --all-features
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm755 target/release/clashtui "$pkgdir/usr/bin/clashtui"
+
+  install -Dm644 contrib/systemd/clashtui_mihomo.service \
+    "$pkgdir/usr/lib/systemd/system/clashtui_mihomo.service"
+  install -Dm644 contrib/systemd/clashtui_singbox.service \
+    "$pkgdir/usr/lib/systemd/system/clashtui_singbox.service"
+
+  install -Dm644 /dev/null "$pkgdir/usr/lib/sysusers.d/clashtui.conf"
+  cat >"$pkgdir/usr/lib/sysusers.d/clashtui.conf" <<'EOF'
+u mihomo - "mihomo daemon user" -
+u sing-box - "sing-box daemon user" -
+EOF
+
+  install -dm750 "$pkgdir/etc/clashtui/mihomo"
+  install -dm750 "$pkgdir/etc/clashtui/sing-box"
+}

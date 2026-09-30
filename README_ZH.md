@@ -60,6 +60,23 @@ sudo pacman -S mihomo sing-box clashtui  # ArchLinux
 
 这一步的目的是保证当前环境中包含 mihomo, sing-box 和 clashtui，这样安装脚本会跳过安装它们的步骤。你也可以手动下载这两个工具，然后运行 which mihomo sing-box clashtui 来检查是否已正确配置。
 
+<details>
+<summary><strong>发行版软件包（备选）</strong></summary>
+
+每个 [GitHub Release](https://github.com/JohanChane/clashtui/releases) 都附带预构建软件包（amd64/arm64 的 `.deb`、`.rpm`、`.pkg.tar.zst`）：
+
+```sh
+# Debian/Ubuntu
+sudo apt install ./clashtui_*_amd64.deb
+
+# Fedora/RHEL
+sudo dnf install ./clashtui-*x86_64.rpm
+```
+
+Arch 用户建议使用 AUR（`clashtui` 源码包，社区维护）；`PKGBUILD` 位于 [packaging/arch/PKGBUILD](packaging/arch/PKGBUILD)。包内布局遵循 FHS：`/usr/bin/clashtui`、systemd 单元位于 `/usr/lib/systemd/system/`、核心配置目录位于 `/etc/clashtui/`；mihomo/sing-box 二进制需单独安装。
+
+</details>
+
 2. 运行安装脚本
 
 ```sh

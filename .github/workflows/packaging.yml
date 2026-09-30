@@ -1,0 +1,66 @@
+name: Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: package ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+          - arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          case "$VERSION" in v*) VERSION="${VERSION#v}" ;; esac
+          # act compatibility: fetch with curl when gh is unavailable
+          if command -v gh >/dev/null 2>&1; then
+            gh release download "${{ github.ref_name }}" \
+              --repo "${{ github.repository }}" \
+              --pattern "clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz" \
+              --clobber
+          else
+            curl -sSfLO "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz"
+          fi
+          gunzip "clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz"
+          BIN="clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}"
+          [ -f "$BIN" ] || { echo "binary not found: $BIN" >&2; exit 1; }
+          chmod +x "$BIN"
+          echo "BIN=$BIN" >>"$GITHUB_ENV"
+          echo "VERSION=$VERSION" >>"$GITHUB_ENV"
+
+      - name: Install fpm
+        run: |
+          if ! command -v gem >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq ruby ruby-dev rpm libarchive-tools
+          fi
+          sudo gem install --no-document fpm
+
+      - name: Build packages
+        run: |
+          ./packaging/build.sh "$BIN" "$VERSION" "${{ matrix.arch }}" ./dist
+          ./packaging/pacman.sh "$BIN" "$VERSION" "${{ matrix.arch }}" ./dist
+          ls -la ./dist/
+
+      - name: Upload to Release
+        if: ${{ !env.ACT }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" ./dist/*.deb ./dist/*.rpm ./dist/*.zst --clobber

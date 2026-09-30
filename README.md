@@ -57,6 +57,22 @@ Windows:
 ```sh
 sudo pacman -S mihomo sing-box clashtui  # ArchLinux
 ```
+<details>
+<summary><strong>Alternative: distro packages</strong></summary>
+
+Prebuilt packages are attached to each [GitHub Release](https://github.com/JohanChane/clashtui/releases) (`.deb`, `.rpm`, `.pkg.tar.zst` for amd64/arm64):
+
+```sh
+# Debian/Ubuntu
+sudo apt install ./clashtui_*_amd64.deb
+
+# Fedora/RHEL
+sudo dnf install ./clashtui-*x86_64.rpm
+```
+
+Arch users should prefer the AUR (`clashtui` source package, community-maintained); a `PKGBUILD` also lives in [packaging/arch/PKGBUILD](packaging/arch/PKGBUILD). Packaged layout is FHS: `/usr/bin/clashtui`, systemd units in `/usr/lib/systemd/system/`, core config dirs in `/etc/clashtui/`; mihomo/sing-box binaries are installed separately.
+
+</details>
 
 This step ensures mihomo, sing-box, and clashtui are available in your environment so the install script will skip downloading them. You can also download them manually and run `which mihomo sing-box clashtui` to verify they are correctly configured.
 
