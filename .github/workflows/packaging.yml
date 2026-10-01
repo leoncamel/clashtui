@@ -1,8 +1,11 @@
 name: Packaging
 
 on:
-  push:
-    tags:
+  # Triggered after Release workflow completes, so release assets exist.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches:
       - 'v*'
   workflow_dispatch:
 
@@ -11,6 +14,9 @@ permissions:
 
 jobs:
   package:
+    # Only run when the triggering Release workflow succeeded (tag runs),
+    # or on manual dispatch. Skips branch-push releases of the Release workflow.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     name: package ${{ matrix.arch }}
     runs-on: ubuntu-latest
     strategy:
@@ -23,27 +29,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve release tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          case "$TAG" in v*) ;; *) TAG="v$TAG" ;; esac
+          echo "TAG=$TAG" >>"$GITHUB_ENV"
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >>"$GITHUB_ENV"
+
       - name: Download release binary
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${{ github.ref_name }}"
-          case "$VERSION" in v*) VERSION="${VERSION#v}" ;; esac
           # act compatibility: fetch with curl when gh is unavailable
           if command -v gh >/dev/null 2>&1; then
-            gh release download "${{ github.ref_name }}" \
+            gh release download "$TAG" \
               --repo "${{ github.repository }}" \
-              --pattern "clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz" \
+              --pattern "clashtui-linux-${{ matrix.arch }}-$TAG.gz" \
               --clobber
           else
-            curl -sSfLO "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz"
+            curl -sSfLO "https://github.com/${{ github.repository }}/releases/download/$TAG/clashtui-linux-${{ matrix.arch }}-$TAG.gz"
           fi
-          gunzip "clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}.gz"
-          BIN="clashtui-linux-${{ matrix.arch }}-${{ github.ref_name }}"
+          gunzip "clashtui-linux-${{ matrix.arch }}-$TAG.gz"
+          BIN="clashtui-linux-${{ matrix.arch }}-$TAG"
           [ -f "$BIN" ] || { echo "binary not found: $BIN" >&2; exit 1; }
           chmod +x "$BIN"
           echo "BIN=$BIN" >>"$GITHUB_ENV"
-          echo "VERSION=$VERSION" >>"$GITHUB_ENV"
 
       - name: Install fpm
         run: |
@@ -66,4 +81,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.ref_name }}" ./dist/*.deb ./dist/*.rpm ./dist/*.zst --clobber
+          gh release upload "$TAG" ./dist/*.deb ./dist/*.rpm ./dist/*.zst --clobber
